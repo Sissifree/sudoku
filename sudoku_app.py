@@ -21,7 +21,16 @@ with open('puzzles.json') as f:
 # TODO: a dropdown/selectbox to pick a puzzle by index from pool['puzzles'].
 # TODO: render the grid (e.g. a table or grid of st.columns), showing given
 # cells and empty cells differently (e.g. bold givens, blank otherwise).
+st.subheader("Sudoku Board")
 
+givens = puzzle["givens"]
+for row in givens:
+    cols = st.columns(len(row))
+    for i, value in enumerate(row):
+        if value == 0:
+            cols[i].write("")
+        else:
+            cols[i].write(f"**{value}**")
 # --- 2. Full-grid auto-solver, with algorithm selection ---
 # TODO: a radio/selectbox letting the user choose forward chaining
 # (solve_full_grid_fc) or backward chaining (solve_full_grid_bc).
@@ -43,3 +52,9 @@ with open('puzzles.json') as f:
 # -- not a raw list/dict dump.
 #
 # Keep the core solver functions in sudoku_solver.py; do not duplicate them here.
+st.subheader("Targeted Cell Entailment")
+row = st.number_input("Row", min_value=1, max_value=9, value=1)
+column = st.number_input("Column", min_value=1, max_value=9, value=1)
+value = st.number_input("Value", min_value=1, max_value=9, value=1)
+if st.button("Check"):
+    st.write("Solver not implemented yet.")
