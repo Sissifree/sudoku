@@ -195,7 +195,7 @@ def build_definite_kb(n, box_h, box_w, givens):
                 box_start_c = c - (c - 1) % box_w
                 for r2 in range(box_start_r, box_start_r + box_h):
                     for c2 in range(box_start_c, box_start_c + box_w):
-                        if r2 != r and c2 != c:
+                        if r2 != r or c2 != c:
                             kb.tell(Expr('==>', atom("Is", r, c, v), atom("Not", r2, c2, v)))
 
     # Rule 6:
