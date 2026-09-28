@@ -47,11 +47,12 @@ st.subheader("Sudoku Puzzle")
 for r in range(1, n + 1):
     cols = st.columns(n)
     for c in range(1, n + 1):
-        key = f"{r}_{c}"
-        if key in givens:
-            cols[c - 1].markdown(f"**{givens[key]}**")
+        if (r, c) in givens:
+            cols[c - 1].markdown(
+                f"**{givens[(r, c)]}**"
+            )
         else:
-            cols[c - 1].write(" ")
+            cols[c - 1].write("·")
 # --- 2. Full-grid auto-solver, with algorithm selection ---
 # TODO: a radio/selectbox letting the user choose forward chaining
 # (solve_full_grid_fc) or backward chaining (solve_full_grid_bc).
