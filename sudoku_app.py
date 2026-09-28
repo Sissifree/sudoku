@@ -1,8 +1,10 @@
 import json
 import time
 import streamlit as st
+
 from utils import *
 from logic_ import *
+
 from sudoku_solver import (
     atom,
     build_definite_kb,
@@ -26,7 +28,7 @@ puzzles = pool["puzzles"]
 # TODO: a dropdown/selectbox to pick a puzzle by index from pool['puzzles'].
 # TODO: render the grid (e.g. a table or grid of st.columns), showing given
 # cells and empty cells differently (e.g. bold givens, blank otherwise).
-st.subheader("1. Select a Sudoku Puzzle")
+st.header("1. Puzzle Selection")
 
 puzzle_index = st.selectbox(
     "Choose a puzzle",
@@ -35,12 +37,18 @@ puzzle_index = st.selectbox(
 )
 
 puzzle = puzzles[puzzle_index]
+
+# Convert JSON keys such as "2_1"
+# into tuple keys such as (2, 1)
 givens = {
     tuple(map(int, key.split("_"))): value
     for key, value in puzzle["givens"].items()
 }
+st.write(
+    f"Number of given cells: {puzzle['given_count']}"
+)
 
-st.write(f"Given cells: {puzzle['given_count']}")
+# Display the original Sudoku puzzle
 
 st.subheader("Sudoku Puzzle")
 
@@ -59,24 +67,25 @@ for r in range(1, n + 1):
 # TODO: a button that times and calls the chosen solver on
 # (n, box_h, box_w, givens), then displays the solved grid and the elapsed
 # time.
-st.subheader("Full-grid Solver")
+st.header("2. Full-grid Solver")
 
 algorithm = st.radio(
-    "Choose algorithm",
+    "Choose solving algorithm",
     ["Forward Chaining", "Backward Chaining"]
-
 )
 
 if st.button("Solve Full Grid"):
+
+    start_time = time.perf_counter()
+
     if algorithm == "Forward Chaining":
-        st.write("✅ Button clicked")
-        start_time = time.perf_counter()
         solution = solve_full_grid_fc(
             n,
             box_h,
             box_w,
             givens
         )
+
     else:
         solution = solve_full_grid_bc(
             n,
@@ -85,13 +94,14 @@ if st.button("Solve Full Grid"):
             givens
         )
 
-    st.write("✅ Solver finished")
     elapsed_time = time.perf_counter() - start_time
     st.success("Puzzle solved!")
     st.write(
         f"Elapsed time: {elapsed_time:.6f} seconds"
     )
+
     st.subheader("Solved Grid")
+
     for r in range(1, n + 1):
         cols = st.columns(n)
         for c in range(1, n + 1):
@@ -99,7 +109,6 @@ if st.button("Solve Full Grid"):
             cols[c - 1].markdown(
                 f"**{value}**"
             )
-
 
 
 # --- 3. Targeted cell entailment query ---
@@ -159,11 +168,12 @@ if st.button("Check Entailment"):
 
     if result:
         st.success(
-            f"Cell ({row}, {col}) is entailed to be {value}."
+            f"True: Cell ({row}, {col}) is entailed to be {value}."
         )
+
     else:
         st.info(
-            f"Cell ({row}, {col}) is not entailed to be {value}."
+            f"False: Cell ({row}, {col}) is not entailed to be {value}."
         )
 
 # --- 4. Reasoning trace ("tutor mode") ---
@@ -176,6 +186,7 @@ if st.button("Check Entailment"):
 #
 # Keep the core solver functions in sudoku_solver.py; do not duplicate them here.
 st.header("4. Tutor Mode")
+
 st.write(
     "Tutor mode will display the reasoning steps "
     "used to answer the selected entailment query."
