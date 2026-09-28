@@ -233,55 +233,45 @@ def solve_full_grid_fc(n, box_h, box_w, givens):
 
 
 def pl_bc_entails(kb, query):
-    """Use backward chaining to determine whether kb entails query."""
-
-    # Index rules by their conclusion.
-    # This avoids scanning all clauses every time we try to prove a goal.
     rules_by_conclusion = {}
 
-    for c in kb.clauses:
-        if c.op == '==>':
-            conclusion = c.args[1]
-            rules_by_conclusion.setdefault(conclusion, []).append(c)
+    for clause in kb.clauses:
+        if clause.op == "==>":
+            conclusion = clause.args[1]
+            rules_by_conclusion.setdefault(
+                conclusion, []
+            ).append(clause)
 
-    # Cache completed results.
     memo = {}
 
-    # Goals currently being explored.
-    visiting = set()
-
-    def prove(goal):
-
-        # Known fact
+    def prove(goal, visiting):
         if goal in kb.clauses:
             return True
 
-        # Already completely solved
         if goal in memo:
             return memo[goal]
 
-        # Prevent recursive cycles
+        # 当前证明路径中已经出现过，避免无限递归
         if goal in visiting:
             return False
 
-        visiting.add(goal)
+        next_visiting = visiting | {goal}
 
-        # Only examine rules whose conclusion is this goal
         for rule in rules_by_conclusion.get(goal, []):
             premises = conjuncts(rule.args[0])
 
-            if all(prove(premise) for premise in premises):
-                visiting.remove(goal)
+            if all(
+                prove(premise, next_visiting)
+                for premise in premises
+            ):
                 memo[goal] = True
                 return True
 
-        visiting.remove(goal)
-
-        # We have now checked all possible rules for this goal.
+        # 只有在完整检查所有规则后才缓存 False
         memo[goal] = False
         return False
 
-    return prove(query)
+    return prove(query, set())
 
 
 def solve_full_grid_bc(n, box_h, box_w, givens):
