@@ -148,7 +148,7 @@ if st.button("Check Entailment"):
         value
     )
 
-    result = pl_bc_entails
+    result = pl_bc_entails(
         kb,
         query
     )
