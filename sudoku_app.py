@@ -23,7 +23,7 @@ with open('puzzles.json') as f:
 # cells and empty cells differently (e.g. bold givens, blank otherwise).
 st.subheader("Sudoku Board")
 
-givens = puzzle["givens"]
+givens = puzzles["givens"]
 
 for row in givens:
 
