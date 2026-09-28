@@ -14,21 +14,116 @@ def atom(prefix, r, c, v):
 
 
 def build_general_kb(n, box_h, box_w, givens):
-    """Return a PropKB encoding this n x n Sudoku's constraints plus the given
-    cells, as general clauses.
+    """Return a PropKB with Sudoku rules and the given cell values.
 
     Parameters
     ----------
     n, box_h, box_w : int
+        Grid size and box dimensions; box_h * box_w must equal n.
     givens : dict[(int, int), int]
+        Given values, with rows, columns and values numbered from 1 to n.
 
     Returns
     -------
     PropKB
+        CNF clauses using Is symbols and their logical negations.
     """
-    raise NotImplementedError(
-        'build_general_kb: encode the puzzle as general clauses'
-    )
+    for size in (n, box_h, box_w):
+        if type(size) is not int or size < 1:
+            raise ValueError("Grid and box dimensions must be positive integers")
+    if box_h * box_w != n:
+        raise ValueError("Each box must contain n cells")
+    for (r, c), v in givens.items():
+        for number in (r, c, v):
+            if type(number) is not int or not 1 <= number <= n:
+                raise ValueError("Given coordinates and values must be in 1..n")
+
+    kb = PropKB()
+
+    # Rule 1: Each cell has at least one value.
+    for r in range(1, n + 1):
+        for c in range(1, n + 1):
+            values = []
+            for v in range(1, n + 1):
+                values.append(atom("Is", r, c, v))
+            kb.tell(associate("|", values))
+
+    # Rule 2: Each cell has at most one value.
+    # Starting v2 at v1 + 1 checks each pair of values once.
+    for r in range(1, n + 1):
+        for c in range(1, n + 1):
+            for v1 in range(1, n + 1):
+                for v2 in range(v1 + 1, n + 1):
+                    kb.tell(~atom("Is", r, c, v1) | ~atom("Is", r, c, v2))
+
+    # Rule 3: Two cells in the same row cannot have the same value.
+    for r in range(1, n + 1):
+        for v in range(1, n + 1):
+            for c1 in range(1, n + 1):
+                for c2 in range(c1 + 1, n + 1):
+                    kb.tell(~atom("Is", r, c1, v) | ~atom("Is", r, c2, v))
+
+    # Rule 4: Two cells in the same column cannot have the same value.
+    for c in range(1, n + 1):
+        for v in range(1, n + 1):
+            for r1 in range(1, n + 1):
+                for r2 in range(r1 + 1, n + 1):
+                    kb.tell(~atom("Is", r1, c, v) | ~atom("Is", r2, c, v))
+
+    # Rule 5: Two cells in the same box cannot have the same value.
+    for box_r in range(1, n + 1, box_h):
+        for box_c in range(1, n + 1, box_w):
+            cells = []
+            for r in range(box_r, box_r + box_h):
+                for c in range(box_c, box_c + box_w):
+                    cells.append((r, c))
+            for i in range(len(cells)):
+                for j in range(i + 1, len(cells)):
+                    r1, c1 = cells[i]
+                    r2, c2 = cells[j]
+                    for v in range(1, n + 1):
+                        kb.tell(~atom("Is", r1, c1, v) | ~atom("Is", r2, c2, v))
+
+    # Rule 6: Add each given value as a fact (a positive unit clause).
+    for (r, c), v in givens.items():
+        kb.tell(atom("Is", r, c, v))
+
+    return kb
+
+
+def solve_full_grid_general(n, box_h, box_w, givens, method="resolution"):
+    """Query every cell/value using the supplied general-KB algorithms.
+
+    method is 'resolution' for pl_resolution, or 'tt' for tt_entails.
+    Return {(row, column): value}; cells with no entailed value are omitted.
+    Raise ValueError if more than one value is entailed for a cell.
+    A 9x9 run may take too long; use a small grid to test the full loop.
+    """
+    if method not in ("resolution", "tt"):
+        raise ValueError("method must be 'resolution' or 'tt'")
+
+    kb = build_general_kb(n, box_h, box_w, givens)
+    if method == "tt":
+        sentence = associate("&", kb.clauses)
+
+    solved = {}
+    for r in range(1, n + 1):
+        for c in range(1, n + 1):
+            entailed_values = []
+            for v in range(1, n + 1):
+                query = atom("Is", r, c, v)
+                if method == "resolution":
+                    entailed = pl_resolution(kb, query)
+                else:
+                    # tt_entails takes a sentence, not a PropKB object.
+                    entailed = tt_entails(sentence, query)
+                if entailed:
+                    entailed_values.append(v)
+            if len(entailed_values) > 1:
+                raise ValueError(f"Inconsistent KB at cell ({r}, {c})")
+            if len(entailed_values) == 1:
+                solved[(r, c)] = entailed_values[0]
+    return solved
 
 
 def build_definite_kb(n, box_h, box_w, givens):
@@ -139,32 +234,62 @@ def solve_full_grid_fc(n, box_h, box_w, givens):
 
 def pl_bc_entails(kb, query):
     """Your own backward-chaining implementation.
+    
+        Parameters
+        ----------
+        kb : PropDefiniteKB
+        query : Expr
+    
+        Returns
+        -------
+        bool
+        """
+    visiting = set()
 
-    Parameters
-    ----------
-    kb : PropDefiniteKB
-    query : Expr
+    def prove(goal):
 
-    Returns
-    -------
-    bool
-    """
-    raise NotImplementedError(
-        'pl_bc_entails: implement backward chaining, soundly'
-    )
+        if goal in kb.clauses:
+            return True
+
+        if goal in visiting:
+            return False
+
+        visiting.add(goal)
+
+        for c in kb.clauses:
+            if c.op == '==>' and c.args[1] == goal:
+
+                premises = conjuncts(c.args[0])
+
+                if all(prove(p) for p in premises):
+                    visiting.remove(goal)
+                    return True
+
+        visiting.remove(goal)
+        return False
+
+    return prove(query)
 
 
 def solve_full_grid_bc(n, box_h, box_w, givens):
-    """Solve the whole puzzle using build_definite_kb + your own pl_bc_entails.
-
-    For each cell, try each candidate value until pl_bc_entails confirms one
-    -- the same per-cell strategy as solve_full_grid_fc, but backed by
-    backward chaining instead of a single shared forward-chaining pass.
+    """Solve the whole puzzle using build_definite_kb + pl_bc_entails.
 
     Returns
     -------
     dict[(int, int), int] -- {(row, col): value} for every cell
     """
-    raise NotImplementedError(
-        'solve_full_grid_bc: solve every cell with backward chaining'
-    )
+    kb = build_definite_kb(n, box_h, box_w, givens)
+    solution = {}
+
+    for r in range(1, n + 1):
+        for c in range(1, n + 1):
+            for v in range(1, n + 1):
+                if pl_bc_entails(kb, atom("Is", r, c, v)):
+                    solution[(r, c)] = v
+                    break
+
+            if (r, c) not in solution:
+                raise ValueError(f"No entailed value for cell ({r}, {c})")
+
+    return solution
+
