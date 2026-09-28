@@ -69,6 +69,7 @@ algorithm = st.radio(
 
 if st.button("Solve Full Grid"):
     if algorithm == "Forward Chaining":
+        st.write("✅ Button clicked")
         start_time = time.perf_counter()
         solution = solve_full_grid_fc(
             n,
@@ -77,7 +78,6 @@ if st.button("Solve Full Grid"):
             givens
         )
     else:
-
         solution = solve_full_grid_bc(
             n,
             box_h,
@@ -85,7 +85,7 @@ if st.button("Solve Full Grid"):
             givens
         )
 
-
+    st.write("✅ Solver finished")
     elapsed_time = time.perf_counter() - start_time
     st.success("Puzzle solved!")
     st.write(
