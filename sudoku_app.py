@@ -35,7 +35,10 @@ puzzle_index = st.selectbox(
 )
 
 puzzle = puzzles[puzzle_index]
-givens = puzzle["givens"]
+givens = {
+    tuple(map(int, key.split("_"))): value
+    for key, value in puzzle["givens"].items()
+}
 
 st.write(f"Given cells: {puzzle['given_count']}")
 
