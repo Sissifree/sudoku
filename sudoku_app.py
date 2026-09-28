@@ -1,9 +1,11 @@
 import json
 import time
+import streamlit as st
 
 from sudoku_solver import build_definite_kb, atom, pl_fc_entails
 
-# 读取 puzzles.json
+st.title("Single FC Test")
+
 with open("puzzles.json") as f:
     pool = json.load(f)
 
@@ -14,34 +16,46 @@ box_w = pool["box_w"]
 # Puzzle 5
 puzzle = pool["puzzles"][4]
 
-# JSON 的 "2_1" 转成 (2, 1)
 givens = {
     tuple(map(int, key.split("_"))): value
     for key, value in puzzle["givens"].items()
 }
 
-print("Building KB...")
-start = time.perf_counter()
+st.write("Puzzle 5 loaded.")
+st.write(f"Number of givens: {len(givens)}")
 
-kb = build_definite_kb(n, box_h, box_w, givens)
+if st.button("Run ONE pl_fc_entails"):
 
-kb_time = time.perf_counter() - start
+    # Step 1: Build KB
+    st.write("1. Building KB...")
+    
+    start = time.perf_counter()
 
-print(f"KB built in {kb_time:.4f} seconds")
-print(f"Number of clauses: {len(kb.clauses)}")
+    kb = build_definite_kb(
+        n,
+        box_h,
+        box_w,
+        givens
+    )
 
-# 只测试一个 query
-query = atom("Is", 1, 1, 1)
+    kb_time = time.perf_counter() - start
 
-print(f"Testing query: Is(1,1,1)")
-print("Starting pl_fc_entails...")
+    st.success(f"KB built in {kb_time:.4f} seconds")
+    st.write(f"Number of clauses: {len(kb.clauses)}")
 
-start = time.perf_counter()
+    # Step 2: Run ONE FC
+    query = atom("Is", 1, 1, 1)
 
-result = pl_fc_entails(kb, query)
+    st.write("2. Starting ONE pl_fc_entails...")
+    st.write("Query: Is(1,1,1)")
 
-elapsed = time.perf_counter() - start
+    start = time.perf_counter()
 
-print("Finished!")
-print(f"Result: {result}")
-print(f"pl_fc_entails time: {elapsed:.4f} seconds")
+    result = pl_fc_entails(kb, query)
+
+    elapsed = time.perf_counter() - start
+
+    st.success("pl_fc_entails finished!")
+
+    st.write(f"Result: {result}")
+    st.write(f"Time: {elapsed:.4f} seconds")
