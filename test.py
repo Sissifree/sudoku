@@ -1,4 +1,5 @@
 import json
+import streamlit as st
 
 from sudoku_solver import (
     atom,
@@ -7,8 +8,8 @@ from sudoku_solver import (
     pl_bc_entails,
 )
 
+st.title("Backward Chaining Test")
 
-# 读取 puzzles.json
 with open("puzzles.json", "r", encoding="utf-8") as f:
     pool = json.load(f)
 
@@ -16,7 +17,6 @@ n = pool["n"]
 box_h = pool["box_h"]
 box_w = pool["box_w"]
 
-# 测试第一个 puzzle
 puzzle = pool["puzzles"][0]
 
 givens = {
@@ -24,8 +24,8 @@ givens = {
     for key, value in puzzle["givens"].items()
 }
 
+st.write("Building knowledge base...")
 
-# 构建 KB
 kb = build_definite_kb(
     n,
     box_h,
@@ -33,13 +33,16 @@ kb = build_definite_kb(
     givens
 )
 
+st.write("Knowledge base built successfully.")
 
-# 测试 cell (1, 4) 的所有候选值
+st.subheader("Test results for cell (1, 4)")
+
 for v in range(1, n + 1):
     query = atom("Is", 1, 4, v)
 
-    print(
-        v,
-        "FC =", pl_fc_entails(kb, query),
-        "BC =", pl_bc_entails(kb, query)
+    fc_result = pl_fc_entails(kb, query)
+    bc_result = pl_bc_entails(kb, query)
+
+    st.write(
+        f"Value {v}: FC = {fc_result}, BC = {bc_result}"
     )
