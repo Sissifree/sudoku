@@ -2,9 +2,13 @@ import json
 import time
 import streamlit as st
 
-from sudoku_solver import build_definite_kb, atom, pl_fc_entails
+from sudoku_solver import (
+    build_definite_kb,
+    atom,
+    pl_bc_entails,
+)
 
-st.title("Single FC Test")
+st.title("Single BC Test")
 
 with open("puzzles.json") as f:
     pool = json.load(f)
@@ -24,11 +28,11 @@ givens = {
 st.write("Puzzle 5 loaded.")
 st.write(f"Number of givens: {len(givens)}")
 
-if st.button("Run ONE pl_fc_entails"):
+if st.button("Run ONE pl_bc_entails"):
 
     # Step 1: Build KB
     st.write("1. Building KB...")
-    
+
     start = time.perf_counter()
 
     kb = build_definite_kb(
@@ -43,19 +47,19 @@ if st.button("Run ONE pl_fc_entails"):
     st.success(f"KB built in {kb_time:.4f} seconds")
     st.write(f"Number of clauses: {len(kb.clauses)}")
 
-    # Step 2: Run ONE FC
+    # Step 2: Run ONE BC
     query = atom("Is", 1, 1, 1)
 
-    st.write("2. Starting ONE pl_fc_entails...")
+    st.write("2. Starting ONE pl_bc_entails...")
     st.write("Query: Is(1,1,1)")
 
     start = time.perf_counter()
 
-    result = pl_fc_entails(kb, query)
+    result = pl_bc_entails(kb, query)
 
     elapsed = time.perf_counter() - start
 
-    st.success("pl_fc_entails finished!")
+    st.success("pl_bc_entails finished!")
 
     st.write(f"Result: {result}")
     st.write(f"Time: {elapsed:.4f} seconds")
