@@ -18,11 +18,8 @@ with open('puzzles.json') as f:
     pool = json.load(f)
 
 n = pool["n"]
-
 box_h = pool["box_h"]
-
 box_w = pool["box_w"]
-
 puzzles = pool["puzzles"]
 
 # --- 1. Puzzle selection & visual board display ---
@@ -32,17 +29,12 @@ puzzles = pool["puzzles"]
 st.subheader("1. Select a Sudoku Puzzle")
 
 puzzle_index = st.selectbox(
-
     "Choose a puzzle",
-
     range(len(puzzles)),
-
     format_func=lambda x: f"Puzzle {x + 1}"
-
 )
 
 puzzle = puzzles[puzzle_index]
-
 givens = puzzle["givens"]
 
 st.write(f"Given cells: {puzzle['given_count']}")
@@ -50,19 +42,12 @@ st.write(f"Given cells: {puzzle['given_count']}")
 st.subheader("Sudoku Puzzle")
 
 for r in range(1, n + 1):
-
     cols = st.columns(n)
-
     for c in range(1, n + 1):
-
         key = f"{r}_{c}"
-
         if key in givens:
-
             cols[c - 1].markdown(f"**{givens[key]}**")
-
         else:
-
             cols[c - 1].write(" ")
 # --- 2. Full-grid auto-solver, with algorithm selection ---
 # TODO: a radio/selectbox letting the user choose forward chaining
@@ -73,53 +58,108 @@ for r in range(1, n + 1):
 st.subheader("Full-grid Solver")
 
 algorithm = st.radio(
-
     "Choose algorithm",
-
     ["Forward Chaining", "Backward Chaining"]
 
 )
 
 if st.button("Solve Full Grid"):
-
     if algorithm == "Forward Chaining":
-
         start_time = time.perf_counter()
-
         solution = solve_full_grid_fc(
-
             n,
-
             box_h,
-
             box_w,
-
             givens
-
-        )
-
-        elapsed = time.perf_counter() - start_time
-
-        st.success("Solved using Forward Chaining!")
-
-        st.write(f"Elapsed time: {elapsed:.6f} seconds")
-
-        for r in range(1, n + 1):
-
-            cols = st.columns(n)
-
-            for c in range(1, n + 1):
-
-                cols[c - 1].write(f"**{solution[(r, c)]}**")
-
     else:
 
-        st.info("Backward Chaining is not implemented yet.")
+        solution = solve_full_grid_bc(
+            n,
+            box_h,
+            box_w,
+            givens
+        )
+
+
+    elapsed_time = time.perf_counter() - start_time
+    st.success("Puzzle solved!")
+    st.write(
+        f"Elapsed time: {elapsed_time:.6f} seconds"
+    )
+    st.subheader("Solved Grid")
+    for r in range(1, n + 1):
+        cols = st.columns(n)
+        for c in range(1, n + 1):
+            value = solution[(r, c)]
+            cols[c - 1].markdown(
+                f"**{value}**"
+            )
+
+
 
 # --- 3. Targeted cell entailment query ---
 # TODO: number inputs for row (r), column (c), value (v).
 # TODO: a button that builds the definite KB, calls
 # pl_bc_entails(kb, atom('Is', r, c, v)), and displays True/False.
+st.header("3. Targeted Cell Entailment")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    row = st.number_input(
+        "Row",
+        min_value=1,
+        max_value=n,
+        value=1,
+        step=1
+    )
+
+with col2:
+    col = st.number_input(
+        "Column",
+        min_value=1,
+        max_value=n,
+        value=1,
+        step=
+    )
+
+with col3:
+    value = st.number_input(
+        "Value",
+        min_value=1,
+        max_value=n,
+        value=1,
+        step=1
+    )
+
+if st.button("Check Entailment"):
+    kb = build_definite_kb(
+        n,
+        box_h,
+        box_w,
+        givens
+    )
+
+    query = atom(
+        "Is",
+        row,
+        col,
+        value
+    )
+
+    result = pl_bc_entails
+        kb,
+        query
+    )
+
+    if result:
+        st.success(
+            f"Cell ({row}, {col}) is entailed to be {value}."
+        )
+    else:
+        st.info(
+            f"Cell ({row}, {col}) is not entailed to be {value}."
+        )
 
 # --- 4. Reasoning trace ("tutor mode") ---
 # TODO: instrument your forward- or backward-chaining approach to record each
@@ -130,3 +170,13 @@ if st.button("Solve Full Grid"):
 # -- not a raw list/dict dump.
 #
 # Keep the core solver functions in sudoku_solver.py; do not duplicate them here.
+st.header("4. Tutor Mode")
+st.write(
+    "Tutor mode will display the reasoning steps "
+    "used to answer the selected entailment query."
+)
+
+st.info(
+    "Reasoning trace will be available when the "
+    "solver provides the required trace information."
+)
