@@ -71,6 +71,7 @@ if st.button("Solve Full Grid"):
             box_h,
             box_w,
             givens
+        )
     else:
 
         solution = solve_full_grid_bc(
