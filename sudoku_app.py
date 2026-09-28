@@ -21,23 +21,41 @@ with open('puzzles.json') as f:
 # TODO: a dropdown/selectbox to pick a puzzle by index from pool['puzzles'].
 # TODO: render the grid (e.g. a table or grid of st.columns), showing given
 # cells and empty cells differently (e.g. bold givens, blank otherwise).
-st.subheader("Sudoku Board")
+st.subheader("1. Select a Sudoku Puzzle")
 
-givens = puzzles["givens"]
+puzzle_index = st.selectbox(
 
-for row in givens:
+    "Choose a puzzle",
 
-    cols = st.columns(len(row))
+    range(len(puzzles)),
 
-    for i, value in enumerate(row):
+    format_func=lambda x: f"Puzzle {x + 1}"
 
-        if value == 0:
+)
 
-            cols[i].write("")
+puzzle = puzzles[puzzle_index]
+
+givens = puzzle["givens"]
+
+st.write(f"Given cells: {puzzle['given_count']}")
+
+st.subheader("Sudoku Puzzle")
+
+for r in range(1, n + 1):
+
+    cols = st.columns(n)
+
+    for c in range(1, n + 1):
+
+        key = f"{r}_{c}"
+
+        if key in givens:
+
+            cols[c - 1].markdown(f"**{givens[key]}**")
 
         else:
 
-            cols[i].write(f"**{value}**")
+            cols[c - 1].write(" ")
 # --- 2. Full-grid auto-solver, with algorithm selection ---
 # TODO: a radio/selectbox letting the user choose forward chaining
 # (solve_full_grid_fc) or backward chaining (solve_full_grid_bc).
