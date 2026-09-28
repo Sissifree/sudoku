@@ -121,7 +121,7 @@ with col2:
         min_value=1,
         max_value=n,
         value=1,
-        step=
+        step=1
     )
 
 with col3:
