@@ -233,42 +233,54 @@ def solve_full_grid_fc(n, box_h, box_w, givens):
 
 
 def pl_bc_entails(kb, query):
+    """Backward chaining for a definite-clause knowledge base."""
+
+    # 根据规则结论建立索引
     rules_by_conclusion = {}
 
     for clause in kb.clauses:
         if clause.op == "==>":
             conclusion = clause.args[1]
+
             rules_by_conclusion.setdefault(
                 conclusion, []
             ).append(clause)
 
-    memo = {}
+    # 只缓存已经成功证明的目标
+    proven = set()
 
     def prove(goal, visiting):
+        # 1. 如果 goal 是已知事实，直接成功
         if goal in kb.clauses:
             return True
 
-        if goal in memo:
-            return memo[goal]
+        # 2. 如果之前已经成功证明过，直接成功
+        if goal in proven:
+            return True
 
-        # 当前证明路径中已经出现过，避免无限递归
+        # 3. 当前路径出现循环，停止这条路径
         if goal in visiting:
             return False
 
-        next_visiting = visiting | {goal}
+        new_visiting = visiting | {goal}
 
+        # 4. 查找所有结论等于 goal 的规则
         for rule in rules_by_conclusion.get(goal, []):
             premises = conjuncts(rule.args[0])
 
-            if all(
-                prove(premise, next_visiting)
-                for premise in premises
-            ):
-                memo[goal] = True
+            # 规则的所有前提都必须能够证明
+            all_proved = True
+
+            for premise in premises:
+                if not prove(premise, new_visiting):
+                    all_proved = False
+                    break
+
+            if all_proved:
+                proven.add(goal)
                 return True
 
-        # 只有在完整检查所有规则后才缓存 False
-        memo[goal] = False
+        # 不缓存 False，避免循环导致错误的永久失败
         return False
 
     return prove(query, set())
