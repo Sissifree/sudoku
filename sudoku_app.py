@@ -17,6 +17,14 @@ st.title('Sudoku Solver')
 with open('puzzles.json') as f:
     pool = json.load(f)
 
+n = pool["n"]
+
+box_h = pool["box_h"]
+
+box_w = pool["box_w"]
+
+puzzles = pool["puzzles"]
+
 # --- 1. Puzzle selection & visual board display ---
 # TODO: a dropdown/selectbox to pick a puzzle by index from pool['puzzles'].
 # TODO: render the grid (e.g. a table or grid of st.columns), showing given
