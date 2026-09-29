@@ -1,5 +1,6 @@
 import json
 import time
+import streamlit as st
 
 from sudoku_solver import (
     atom,
