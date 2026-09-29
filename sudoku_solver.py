@@ -343,7 +343,7 @@ def solve_full_grid_bc(n, box_h, box_w, givens):
 
 
 def pl_bc_entails_with_trace(kb, query):
-    """Backward chaining with a human-readable reasoning trace."""
+    """Cycle-safe backward chaining with a readable trace."""
 
     facts = {
         clause for clause in kb.clauses
@@ -359,22 +359,24 @@ def pl_bc_entails_with_trace(kb, query):
                 conclusion, []
             ).append(clause)
 
-    proved = set()
     trace = []
+    relevant_rules = set()
+    goals_to_visit = [query]
+    visited_goals = set()
 
     def format_atom(symbol):
         name = str(symbol)
 
         if name.startswith("Is"):
-            values = name[2:].split("_")
-            if len(values) == 3:
-                r, c, v = values
+            parts = name[2:].split("_")
+            if len(parts) == 3:
+                r, c, v = parts
                 return f"Cell ({r}, {c}) = {v}"
 
         if name.startswith("Not"):
-            values = name[3:].split("_")
-            if len(values) == 3:
-                r, c, v = values
+            parts = name[3:].split("_")
+            if len(parts) == 3:
+                r, c, v = parts
                 return f"Cell ({r}, {c}) cannot be {v}"
 
         return name
@@ -392,96 +394,82 @@ def pl_bc_entails_with_trace(kb, query):
             f"then {format_atom(conclusion)}"
         )
 
-    def prove(goal, path, depth=0):
-        goal_text = format_atom(goal)
+    # Collect only rules related to the query.
+    while goals_to_visit:
+        goal = goals_to_visit.pop()
+
+        if goal in visited_goals:
+            continue
+
+        visited_goals.add(goal)
 
         if goal in facts:
+            continue
+
+        for rule in rules_by_conclusion.get(goal, []):
+            if rule in relevant_rules:
+                continue
+
+            relevant_rules.add(rule)
+
+            for premise in conjuncts(rule.args[0]):
+                goals_to_visit.append(premise)
+
+    known = set(facts)
+
+    for fact in facts:
+        if fact == query:
             trace.append({
                 "type": "fact",
-                "depth": depth,
+                "depth": 0,
                 "message": (
-                    f"{goal_text} is an initial fact."
+                    f"{format_atom(query)} is an initial fact."
                 )
             })
-            return True
+            return True, trace
 
-        if goal in proved:
-            trace.append({
-                "type": "proved",
-                "depth": depth,
-                "message": (
-                    f"{goal_text} was already proved earlier."
-                )
-            })
-            return True
+    changed = True
 
-        if goal in path:
-            trace.append({
-                "type": "cycle",
-                "depth": depth,
-                "message": (
-                    f"Cycle detected while trying to prove "
-                    f"{goal_text}."
-                )
-            })
-            return False
+    while changed:
+        changed = False
 
-        trace.append({
-            "type": "goal",
-            "depth": depth,
-            "message": f"Trying to prove {goal_text}."
-        })
-
-        new_path = path | {goal}
-
-        candidate_rules = rules_by_conclusion.get(goal, [])
-
-        if not candidate_rules:
-            trace.append({
-                "type": "fail",
-                "depth": depth,
-                "message": (
-                    f"No fact or rule can prove {goal_text}."
-                )
-            })
-            return False
-
-        for rule in candidate_rules:
-            trace.append({
-                "type": "rule",
-                "depth": depth,
-                "message": (
-                    f"Trying rule: {format_rule(rule)}"
-                )
-            })
-
+        for rule in relevant_rules:
             premises = conjuncts(rule.args[0])
+            conclusion = rule.args[1]
 
-            if all(
-                prove(premise, new_path, depth + 1)
-                for premise in premises
-            ):
-                proved.add(goal)
+            if conclusion in known:
+                continue
+
+            if all(premise in known for premise in premises):
+                known.add(conclusion)
+                changed = True
+
+                trace.append({
+                    "type": "rule",
+                    "depth": 0,
+                    "message": (
+                        f"Applied rule: {format_rule(rule)}"
+                    )
+                })
 
                 trace.append({
                     "type": "success",
-                    "depth": depth,
+                    "depth": 0,
                     "message": (
-                        f"All premises are true. "
-                        f"Therefore {goal_text}."
+                        f"Therefore {format_atom(conclusion)}."
                     )
                 })
-                return True
 
-            trace.append({
-                "type": "fail",
-                "depth": depth,
-                "message": (
-                    f"This rule cannot prove {goal_text}."
-                )
-            })
+                if conclusion == query:
+                    return True, trace
 
-        return False
+    trace.append({
+        "type": "fail",
+        "depth": 0,
+        "message": (
+            f"{format_atom(query)} could not be derived "
+            f"from the knowledge base."
+        )
+    })
 
-    result = prove(query, set())
-    return result, trace
+    return False, trace
