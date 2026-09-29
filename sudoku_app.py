@@ -12,6 +12,7 @@ from sudoku_solver import (
     solve_full_grid_fc,
     solve_full_grid_bc,
     pl_bc_entails,
+    pl_bc_entails_with_trace,
 )
 
 st.title('Sudoku Solver')
@@ -188,11 +189,46 @@ if st.button("Check Entailment"):
 st.header("4. Tutor Mode")
 
 st.write(
-    "Tutor mode will display the reasoning steps "
-    "used to answer the selected entailment query."
+    "Display the backward-chaining reasoning "
+    "steps for the selected query."
 )
 
-st.info(
-    "Reasoning trace will be available when the "
-    "solver provides the required trace information."
-)
+if st.button("Show Reasoning Trace"):
+    kb = build_definite_kb(
+        n,
+        box_h,
+        box_w,
+        givens
+    )
+
+    query = atom(
+        "Is",
+        int(row),
+        int(col),
+        int(value)
+    )
+
+    result, trace = pl_bc_entails_with_trace(
+        kb,
+        query
+    )
+
+    if result:
+        st.success(
+            f"Query Is({row}, {col}, {value}) "
+            "is entailed."
+        )
+    else:
+        st.error(
+            f"Query Is({row}, {col}, {value}) "
+            "is not entailed."
+        )
+
+    st.subheader("Reasoning Steps")
+
+    if trace:
+        for i, step in enumerate(trace, start=1):
+            with st.expander(f"Step {i}"):
+                st.write(step)
+    else:
+        st.info("No reasoning steps were recorded.")
