@@ -9,6 +9,8 @@ from sudoku_solver import (
     pl_bc_entails_with_trace,
 )
 
+st.title("Backward Chaining Test")
+
 with open("puzzles.json", "r", encoding="utf-8") as f:
     pool = json.load(f)
 
@@ -22,6 +24,9 @@ givens = {
     tuple(map(int, key.split("_"))): value
     for key, value in puzzle["givens"].items()
 }
+
+st.write("Building knowledge base...")
+st.subheader("Test results for cell (1, 4)")
 
 kb = build_definite_kb(
     n,
