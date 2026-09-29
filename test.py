@@ -1,14 +1,13 @@
 import json
-import streamlit as st
+import time
 
 from sudoku_solver import (
     atom,
     build_definite_kb,
     pl_fc_entails,
     pl_bc_entails,
+    pl_bc_entails_with_trace,
 )
-
-st.title("Backward Chaining Test")
 
 with open("puzzles.json", "r", encoding="utf-8") as f:
     pool = json.load(f)
@@ -24,8 +23,6 @@ givens = {
     for key, value in puzzle["givens"].items()
 }
 
-st.write("Building knowledge base...")
-
 kb = build_definite_kb(
     n,
     box_h,
@@ -33,16 +30,26 @@ kb = build_definite_kb(
     givens
 )
 
-st.write("Knowledge base built successfully.")
+query = atom("Is", 1, 4, 9)
 
-st.subheader("Test results for cell (1, 4)")
+start = time.perf_counter()
+fc_result = pl_fc_entails(kb, query)
+fc_time = time.perf_counter() - start
 
-for v in range(1, n + 1):
-    query = atom("Is", 1, 4, v)
+start = time.perf_counter()
+bc_result = pl_bc_entails(kb, query)
+bc_time = time.perf_counter() - start
 
-    fc_result = pl_fc_entails(kb, query)
-    bc_result = pl_bc_entails(kb, query)
+print("FC result:", fc_result)
+print("FC time:", fc_time)
 
-    st.write(
-        f"Value {v}: FC = {fc_result}, BC = {bc_result}"
-    )
+print("BC result:", bc_result)
+print("BC time:", bc_time)
+
+start = time.perf_counter()
+trace_result, trace = pl_bc_entails_with_trace(kb, query)
+trace_time = time.perf_counter() - start
+
+print("Trace result:", trace_result)
+print("Trace time:", trace_time)
+print("Number of trace steps:", len(trace))
