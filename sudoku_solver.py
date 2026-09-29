@@ -233,43 +233,88 @@ def solve_full_grid_fc(n, box_h, box_w, givens):
 
 
 def pl_bc_entails(kb, query):
-    """Return True if kb entails query using backward chaining."""
+    """
+    Return True if kb entails query using cycle-safe
+    backward chaining.
+    """
 
     rules_by_conclusion = {}
+    facts = set()
 
     for clause in kb.clauses:
-        if clause.op == "==>":
+
+        if is_prop_symbol(clause.op):
+            facts.add(clause)
+
+        elif clause.op == "==>":
             conclusion = clause.args[1]
+
             rules_by_conclusion.setdefault(
-                conclusion, []
+                conclusion,
+                []
             ).append(clause)
 
-    proved = set()
-    visiting = set()
+    # -------------------------------------------------
+    # Step 1: collect rules relevant to the query
+    # -------------------------------------------------
 
-    def prove(goal):
-        if goal in kb.clauses:
-            return True
+    relevant_rules = set()
+    goals_to_visit = [query]
+    visited_goals = set()
 
-        if goal in proved:
-            return True
+    while goals_to_visit:
 
-        if goal in visiting:
-            return False
+        goal = goals_to_visit.pop()
 
-        visiting.add(goal)
+        if goal in visited_goals:
+            continue
+
+        visited_goals.add(goal)
 
         for rule in rules_by_conclusion.get(goal, []):
+
+            if rule in relevant_rules:
+                continue
+
+            relevant_rules.add(rule)
+
             premises = conjuncts(rule.args[0])
 
-            if all(prove(premise) for premise in premises):
-                visiting.remove(goal)
-                proved.add(goal)
-                return True
+            for premise in premises:
+                if premise not in visited_goals:
+                    goals_to_visit.append(premise)
 
-        visiting.remove(goal)
-        return False
+    # -------------------------------------------------
+    # Step 2: fixed-point inference on relevant rules
+    # -------------------------------------------------
 
+    known = set(facts)
+
+    changed = True
+
+    while changed:
+
+        changed = False
+
+        for rule in relevant_rules:
+
+            premises = conjuncts(rule.args[0])
+            conclusion = rule.args[1]
+
+            if (
+                conclusion not in known
+                and all(
+                    premise in known
+                    for premise in premises
+                )
+            ):
+                known.add(conclusion)
+                changed = True
+
+                if conclusion == query:
+                    return True
+
+    return query in known
     return prove(query)
 
 
