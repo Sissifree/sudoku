@@ -233,22 +233,25 @@ def solve_full_grid_fc(n, box_h, box_w, givens):
 
 
 def pl_bc_entails(kb, query):
-    """Your own backward-chaining implementation.
-    
-        Parameters
-        ----------
-        kb : PropDefiniteKB
-        query : Expr
-    
-        Returns
-        -------
-        bool
-        """
+    """Return True if kb entails query using backward chaining."""
+
+    rules_by_conclusion = {}
+
+    for clause in kb.clauses:
+        if clause.op == "==>":
+            conclusion = clause.args[1]
+            rules_by_conclusion.setdefault(
+                conclusion, []
+            ).append(clause)
+
+    proved = set()
     visiting = set()
 
     def prove(goal):
-
         if goal in kb.clauses:
+            return True
+
+        if goal in proved:
             return True
 
         if goal in visiting:
@@ -256,19 +259,19 @@ def pl_bc_entails(kb, query):
 
         visiting.add(goal)
 
-        for c in kb.clauses:
-            if c.op == '==>' and c.args[1] == goal:
+        for rule in rules_by_conclusion.get(goal, []):
+            premises = conjuncts(rule.args[0])
 
-                premises = conjuncts(c.args[0])
-
-                if all(prove(p) for p in premises):
-                    visiting.remove(goal)
-                    return True
+            if all(prove(premise) for premise in premises):
+                visiting.remove(goal)
+                proved.add(goal)
+                return True
 
         visiting.remove(goal)
         return False
 
     return prove(query)
+
 
 
 def solve_full_grid_bc(n, box_h, box_w, givens):
