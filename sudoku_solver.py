@@ -195,7 +195,7 @@ def build_definite_kb(n, box_h, box_w, givens):
                 box_start_c = c - (c - 1) % box_w
                 for r2 in range(box_start_r, box_start_r + box_h):
                     for c2 in range(box_start_c, box_start_c + box_w):
-                        if (r2, c2) != (r, c):
+                        if r2 != r and c2 != c:
                             kb.tell(Expr('==>', atom("Is", r, c, v), atom("Not", r2, c2, v)))
 
     # Rule 6:
@@ -232,64 +232,43 @@ def solve_full_grid_fc(n, box_h, box_w, givens):
     return solution
 
 
-
 def pl_bc_entails(kb, query):
-    """
-    Return True if kb entails query using backward chaining.
-    """
+    """Your own backward-chaining implementation.
+    
+        Parameters
+        ----------
+        kb : PropDefiniteKB
+        query : Expr
+    
+        Returns
+        -------
+        bool
+        """
+    visiting = set()
 
-    # 建立：结论 -> 可以推出该结论的规则
-    rules_by_conclusion = {}
+    def prove(goal):
 
-    for clause in kb.clauses:
-        if clause.op == "==>":
-            conclusion = clause.args[1]
-
-            rules_by_conclusion.setdefault(
-                conclusion, []
-            ).append(clause)
-
-    # 只保存已经成功证明的目标
-    proved = set()
-
-    def prove(goal, path):
-        # 1. goal 是 KB 中的已知事实
         if goal in kb.clauses:
             return True
 
-        # 2. goal 之前已经成功证明
-        if goal in proved:
-            return True
-
-        # 3. 当前证明路径出现循环
-        if goal in path:
+        if goal in visiting:
             return False
 
-        new_path = path | {goal}
+        visiting.add(goal)
 
-        # 4. 查找所有结论为 goal 的规则
-        candidate_rules = rules_by_conclusion.get(goal, [])
+        for c in kb.clauses:
+            if c.op == '==>' and c.args[1] == goal:
 
-        for rule in candidate_rules:
-            premises = conjuncts(rule.args[0])
+                premises = conjuncts(c.args[0])
 
-            # 当前规则的每个前提都必须能够证明
-            rule_succeeds = True
+                if all(prove(p) for p in premises):
+                    visiting.remove(goal)
+                    return True
 
-            for premise in premises:
-                if not prove(premise, new_path):
-                    rule_succeeds = False
-                    break
-
-            # 找到一条完整可行的规则
-            if rule_succeeds:
-                proved.add(goal)
-                return True
-
-        # 所有候选规则都失败
+        visiting.remove(goal)
         return False
 
-    return prove(query, set())
+    return prove(query)
 
 
 def solve_full_grid_bc(n, box_h, box_w, givens):
@@ -314,102 +293,147 @@ def solve_full_grid_bc(n, box_h, box_w, givens):
 
     return solution
 
+
 def pl_bc_entails_with_trace(kb, query):
-    """
-    Return (result, trace) using backward chaining.
-    """
+    """Backward chaining with a human-readable reasoning trace."""
+
+    facts = {
+        clause for clause in kb.clauses
+        if is_prop_symbol(clause.op)
+    }
 
     rules_by_conclusion = {}
-    trace = []
-    proved = set()
 
-    # 建立：结论 -> 相关规则
     for clause in kb.clauses:
         if clause.op == "==>":
             conclusion = clause.args[1]
-
             rules_by_conclusion.setdefault(
                 conclusion, []
             ).append(clause)
 
-    def prove(goal, path):
-        # 1. 已知事实
-        if goal in kb.clauses:
-            trace.append(
-                f"Known fact: {goal}"
-            )
+    proved = set()
+    trace = []
+
+    def format_atom(symbol):
+        name = str(symbol)
+
+        if name.startswith("Is"):
+            values = name[2:].split("_")
+            if len(values) == 3:
+                r, c, v = values
+                return f"Cell ({r}, {c}) = {v}"
+
+        if name.startswith("Not"):
+            values = name[3:].split("_")
+            if len(values) == 3:
+                r, c, v = values
+                return f"Cell ({r}, {c}) cannot be {v}"
+
+        return name
+
+    def format_rule(rule):
+        premises = conjuncts(rule.args[0])
+        conclusion = rule.args[1]
+
+        premise_text = " and ".join(
+            format_atom(p) for p in premises
+        )
+
+        return (
+            f"If {premise_text}, "
+            f"then {format_atom(conclusion)}"
+        )
+
+    def prove(goal, path, depth=0):
+        goal_text = format_atom(goal)
+
+        if goal in facts:
+            trace.append({
+                "type": "fact",
+                "depth": depth,
+                "message": (
+                    f"{goal_text} is an initial fact."
+                )
+            })
             return True
 
-        # 2. 已经成功证明
         if goal in proved:
-            trace.append(
-                f"Previously proved: {goal}"
-            )
+            trace.append({
+                "type": "proved",
+                "depth": depth,
+                "message": (
+                    f"{goal_text} was already proved earlier."
+                )
+            })
             return True
 
-        # 3. 当前路径出现循环
         if goal in path:
-            trace.append(
-                f"Cycle detected while proving: {goal}"
-            )
+            trace.append({
+                "type": "cycle",
+                "depth": depth,
+                "message": (
+                    f"Cycle detected while trying to prove "
+                    f"{goal_text}."
+                )
+            })
             return False
+
+        trace.append({
+            "type": "goal",
+            "depth": depth,
+            "message": f"Trying to prove {goal_text}."
+        })
 
         new_path = path | {goal}
 
-        candidate_rules = rules_by_conclusion.get(
-            goal, []
-        )
+        candidate_rules = rules_by_conclusion.get(goal, [])
 
         if not candidate_rules:
-            trace.append(
-                f"No rule can derive: {goal}"
-            )
+            trace.append({
+                "type": "fail",
+                "depth": depth,
+                "message": (
+                    f"No fact or rule can prove {goal_text}."
+                )
+            })
             return False
 
-        # 4. 逐条尝试相关规则
         for rule in candidate_rules:
+            trace.append({
+                "type": "rule",
+                "depth": depth,
+                "message": (
+                    f"Trying rule: {format_rule(rule)}"
+                )
+            })
+
             premises = conjuncts(rule.args[0])
 
-            premise_text = ", ".join(
-                str(premise)
+            if all(
+                prove(premise, new_path, depth + 1)
                 for premise in premises
-            )
-
-            trace.append(
-                f"Trying to prove {goal} "
-                f"using: {premise_text}"
-            )
-
-            rule_succeeds = True
-
-            # 5. 必须证明该规则的所有 premises
-            for premise in premises:
-                if not prove(premise, new_path):
-                    rule_succeeds = False
-
-                    trace.append(
-                        f"Rule failed because "
-                        f"{premise} could not be proved."
-                    )
-
-                    break
-
-            # 6. 该规则成功
-            if rule_succeeds:
+            ):
                 proved.add(goal)
 
-                trace.append(
-                    f"Derived {goal}."
-                )
-
+                trace.append({
+                    "type": "success",
+                    "depth": depth,
+                    "message": (
+                        f"All premises are true. "
+                        f"Therefore {goal_text}."
+                    )
+                })
                 return True
 
-        trace.append(
-            f"Could not prove {goal}."
-        )
+            trace.append({
+                "type": "fail",
+                "depth": depth,
+                "message": (
+                    f"This rule cannot prove {goal_text}."
+                )
+            })
 
         return False
 
     result = prove(query, set())
-
     return result, trace
