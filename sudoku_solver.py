@@ -232,10 +232,13 @@ def solve_full_grid_fc(n, box_h, box_w, givens):
     return solution
 
 
-def pl_bc_entails(kb, query):
-    """Backward chaining for a definite-clause knowledge base."""
 
-    # 根据规则结论建立索引
+def pl_bc_entails(kb, query):
+    """
+    Return True if kb entails query using backward chaining.
+    """
+
+    # 建立：结论 -> 可以推出该结论的规则
     rules_by_conclusion = {}
 
     for clause in kb.clauses:
@@ -246,41 +249,44 @@ def pl_bc_entails(kb, query):
                 conclusion, []
             ).append(clause)
 
-    # 只缓存已经成功证明的目标
-    proven = set()
+    # 只保存已经成功证明的目标
+    proved = set()
 
-    def prove(goal, visiting):
-        # 1. 如果 goal 是已知事实，直接成功
+    def prove(goal, path):
+        # 1. goal 是 KB 中的已知事实
         if goal in kb.clauses:
             return True
 
-        # 2. 如果之前已经成功证明过，直接成功
-        if goal in proven:
+        # 2. goal 之前已经成功证明
+        if goal in proved:
             return True
 
-        # 3. 当前路径出现循环，停止这条路径
-        if goal in visiting:
+        # 3. 当前证明路径出现循环
+        if goal in path:
             return False
 
-        new_visiting = visiting | {goal}
+        new_path = path | {goal}
 
-        # 4. 查找所有结论等于 goal 的规则
-        for rule in rules_by_conclusion.get(goal, []):
+        # 4. 查找所有结论为 goal 的规则
+        candidate_rules = rules_by_conclusion.get(goal, [])
+
+        for rule in candidate_rules:
             premises = conjuncts(rule.args[0])
 
-            # 规则的所有前提都必须能够证明
-            all_proved = True
+            # 当前规则的每个前提都必须能够证明
+            rule_succeeds = True
 
             for premise in premises:
-                if not prove(premise, new_visiting):
-                    all_proved = False
+                if not prove(premise, new_path):
+                    rule_succeeds = False
                     break
 
-            if all_proved:
-                proven.add(goal)
+            # 找到一条完整可行的规则
+            if rule_succeeds:
+                proved.add(goal)
                 return True
 
-        # 不缓存 False，避免循环导致错误的永久失败
+        # 所有候选规则都失败
         return False
 
     return prove(query, set())
@@ -308,3 +314,102 @@ def solve_full_grid_bc(n, box_h, box_w, givens):
 
     return solution
 
+def pl_bc_entails_with_trace(kb, query):
+    """
+    Return (result, trace) using backward chaining.
+    """
+
+    rules_by_conclusion = {}
+    trace = []
+    proved = set()
+
+    # 建立：结论 -> 相关规则
+    for clause in kb.clauses:
+        if clause.op == "==>":
+            conclusion = clause.args[1]
+
+            rules_by_conclusion.setdefault(
+                conclusion, []
+            ).append(clause)
+
+    def prove(goal, path):
+        # 1. 已知事实
+        if goal in kb.clauses:
+            trace.append(
+                f"Known fact: {goal}"
+            )
+            return True
+
+        # 2. 已经成功证明
+        if goal in proved:
+            trace.append(
+                f"Previously proved: {goal}"
+            )
+            return True
+
+        # 3. 当前路径出现循环
+        if goal in path:
+            trace.append(
+                f"Cycle detected while proving: {goal}"
+            )
+            return False
+
+        new_path = path | {goal}
+
+        candidate_rules = rules_by_conclusion.get(
+            goal, []
+        )
+
+        if not candidate_rules:
+            trace.append(
+                f"No rule can derive: {goal}"
+            )
+            return False
+
+        # 4. 逐条尝试相关规则
+        for rule in candidate_rules:
+            premises = conjuncts(rule.args[0])
+
+            premise_text = ", ".join(
+                str(premise)
+                for premise in premises
+            )
+
+            trace.append(
+                f"Trying to prove {goal} "
+                f"using: {premise_text}"
+            )
+
+            rule_succeeds = True
+
+            # 5. 必须证明该规则的所有 premises
+            for premise in premises:
+                if not prove(premise, new_path):
+                    rule_succeeds = False
+
+                    trace.append(
+                        f"Rule failed because "
+                        f"{premise} could not be proved."
+                    )
+
+                    break
+
+            # 6. 该规则成功
+            if rule_succeeds:
+                proved.add(goal)
+
+                trace.append(
+                    f"Derived {goal}."
+                )
+
+                return True
+
+        trace.append(
+            f"Could not prove {goal}."
+        )
+
+        return False
+
+    result = prove(query, set())
+
+    return result, trace
