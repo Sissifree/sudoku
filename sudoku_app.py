@@ -194,6 +194,7 @@ st.write(
 )
 
 if st.button("Show Reasoning Trace"):
+
     kb = build_definite_kb(
         n,
         box_h,
@@ -228,7 +229,34 @@ if st.button("Show Reasoning Trace"):
 
     if trace:
         for i, step in enumerate(trace, start=1):
-            with st.expander(f"Step {i}"):
-                st.write(step)
+
+            message = step["message"]
+            step_type = step["type"]
+            depth = step["depth"]
+
+            indent = "　" * depth
+
+            with st.expander(
+                f"Step {i}: {message}"
+            ):
+
+                if step_type == "fact":
+                    st.success(indent + message)
+
+                elif step_type == "rule":
+                    st.info(indent + message)
+
+                elif step_type == "success":
+                    st.success(indent + message)
+
+                elif step_type == "fail":
+                    st.warning(indent + message)
+
+                elif step_type == "cycle":
+                    st.error(indent + message)
+
+                else:
+                    st.write(indent + message)
+
     else:
         st.info("No reasoning steps were recorded.")
